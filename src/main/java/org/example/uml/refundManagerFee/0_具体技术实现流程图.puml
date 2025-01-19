@@ -1,0 +1,86 @@
+@startuml
+
+autonumber
+
+skinparam LegendBackgroundColor #FFFAE6
+skinparam LegendBorderColor #FF5733
+
+actor "开发" as Developer
+actor "Ops" as Ops
+participant "数仓" as shucang
+participant "线上表"
+participant "定时任务"
+participant "后端"
+
+
+activate 定时任务
+activate 后端
+
+
+
+
+group 退还管理费
+    shucang -> shucang: 统计每天的用户余额信息并汇总保存到离线表
+    shucang -> 线上表: 离线数据同步到线上表
+	定时任务 -> 后端: <font color="red">执行任务1</font>
+	后端 -> 线上表: 捞取表中符合条件的单据，并存放到管理费应退表中
+	alt 线上表没收到离线数据
+    	后端 --> Developer: 发送邮件，提示线上表未更新，人工排查
+    end
+	定时任务 -> 后端: <font color="red">执行任务2</font>
+	后端 -> 线上表: 捞取status != SUCCESS || FAIL的单据
+	线上表 --> 后端: 返回单据
+	loop 遍历单据（账号+时间维度）
+		后端 -> 后端: 查询正向收费流水列表
+		alt status = INIT
+            后端 -> 后端: 更新单据状态，status = PROCESSING， acctSeqNo赋值
+        end
+		loop 遍历每条没有勾兑记录的正向流水
+		    后端 -> 后端: 更新单据实收金额；落收费记录
+		end
+        alt 实收金额 = 应收金额
+            alt status = PROCESSING
+                后端 -> 后端: 使用幂等号进行资金划拨，返回划拨结果
+            	alt 划拨异常
+                    后端 -> 后端: 更新单据状态，status = RETRYING，idempotenceNo = 新幂等号
+                else 退费失败
+                    后端 -> 后端: 更新单据状态，status = TEMP_FAIL，idempotenceNo = 新幂等号
+                else 退费成功
+                    后端 -> 后端: 更新单据状态，status = SUCCESS，idempotenceNo = 新幂等号
+                end
+            else  status = RETRYING
+                后端 -> 后端: 根据幂等号查询资金划拨结果
+                alt 查询划拨结果异常
+                    后端 -> 后端: 无
+                else 退费失败
+                    后端 -> 后端: 更新单据状态，status = TEMP_FAIL
+                    alt 重试次数达到上限
+                        后端 -> 后端: 更新单据状态， status = FAIL
+                    end
+                else 退费成功
+                    后端 -> 后端: 更新单据状态，status = SUCCESS
+                end
+            else  status = TEMP_FAIL
+                后端 -> 后端: 生成新幂等号并资金划拨，返回划拨结果
+                alt 查询划拨结果异常
+                    后端 -> 后端: 更新单据状态，status = RETRYING，idempotenceNo = 新幂等号，attemptCount++
+                else 退费失败
+                    后端 -> 后端: 更新单据状态，status = TEMP_FAIL，idempotenceNo = 新幂等号，attemptCount++
+                    alt 重试次数达到上限
+                        后端 -> 后端: 更新单据状态， status = FAIL
+                    end
+                else 退费成功
+                    后端 -> 后端: status = SUCCESS，idempotenceNo = 新幂等号，attemptCount++
+                end
+            end
+        end
+	end
+
+    定时任务 -> 后端: <font color="red">执行任务3</font>
+	后端 -> Ops: 发送本次返还用户管理费的列表（包含退费成功/失败状态）
+
+end
+
+
+
+@enduml

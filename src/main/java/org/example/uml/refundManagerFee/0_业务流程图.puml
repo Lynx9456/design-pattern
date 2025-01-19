@@ -1,0 +1,45 @@
+@startuml
+autonumber
+
+skinparam LegendBackgroundColor #FFFAE6
+skinparam LegendBorderColor #FF5733
+
+actor "开发" as Developer
+actor "Ops" as Ops
+participant "数仓" as shucang
+participant "定时任务" as schedule
+participant "后台" as service
+participant "核心" as  core
+
+shucang -> shucang: 统计每天的用户余额信息并汇总保存到离线表
+shucang -> service: 离线数据同步到线上表
+schedule --> service: 执行任务
+note left: 捞取过滤单据
+service -> service: 捞取过滤单据
+service -> core: 获取正向收费流水
+core -> service: 返回流水列表
+service -> service: 流水匹配，匹配未勾兑的流水
+loop 遍历未勾兑的流水
+    alt 未勾兑的流水已经收费完整
+        service -> core: 使用幂等号进行资金划拨
+        core --> service: 返回划拨结果
+        alt 划拨成功
+           service -> service: 更新单据状态，记录退费信息
+        else 划拨失败
+           alt 未超过重试次数
+               service -> core: 重试资金划拨
+               core -> service: 划拨结果
+               service -> service: 更新单据状态，记录退费信息
+           else 超过重试次数
+               service -> service: 更新单据状态为失败
+           end
+        end
+    end
+end
+
+定时任务 -> Ops: 发送本次返还用户管理费的异常单据
+alt 线上表没收到离线数据
+	定时任务 --> Developer: 发送邮件，提示线上表未更新，人工排查
+end
+
+@enduml

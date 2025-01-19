@@ -1,0 +1,28 @@
+@startuml
+
+'3_状态机
+[*] --> INIT: 数据写入，等待执行
+
+INIT --> PROCESSING: 管理费未收取完整
+
+PROCESSING --> SUCCESS: 执行退费，退费成功
+
+PROCESSING --> RETRYING: 执行退费，查询退费结果失败，不断重试
+
+PROCESSING --> TEMP_FAIL: 执行退费，退费失败，未达到最大重试次数
+
+RETRYING --> SUCCESS: 使用原幂等号重试退费，执行成功
+
+RETRYING --> TEMP_FAIL: 使用原幂等号重试退费，执行失败，未达到最大重试次数
+
+TEMP_FAIL --> FAIL: 使用新幂等号重试退费，执行失败，达到最大重试次数，取消退费
+
+TEMP_FAIL --> RETRYING: 使用新幂等号重试退费，查询退费结果失败，不断重试
+
+TEMP_FAIL --> SUCCESS: 使用新幂等号重试退费，执行成功
+
+SUCCESS --> [*]
+
+FAIL --> [*]
+
+@enduml

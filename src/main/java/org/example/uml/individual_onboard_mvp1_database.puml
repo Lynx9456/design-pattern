@@ -1,0 +1,116 @@
+@startuml
+'https://plantuml.com/object-diagram
+
+enum tag_type{
+    OCR_RISK
+    AML_RISK
+}
+
+enum OCR_TAG{
+    PASSPORT_EDITED
+    NATIONAL_ID_EDITED
+}
+
+enum AML_TAG{
+    LOW_RISK
+    MEDIUM_RISK
+    HIGHT_RISK
+}
+
+class party{
+    String party_id
+    String client_no CIF号
+    String party_type  corporate、individual
+    String client_name 客户名称
+   	...
+    String status
+    String pollUrl
+    Date createTime
+    Date updateTime
+}
+
+class users{
+    String party_id
+    String user_id 用户ID
+    String user_type 用户类型 individual、operator
+    String user_name 用户名称
+    String en_user_name 用户英文名称
+    String address 地址
+    String birthday 出生日期
+    ...
+    String status
+    Date createTime
+    Date updateTime
+}
+
+class user_extra{
+    String party_id
+    String user_id 用户ID
+    String nationality 国籍
+    ...
+    String status
+    Date createTime
+    Date updateTime
+}
+
+class user_contract{
+    String party_id
+    String user_id 用户ID
+    String contract_type 联系类型
+    String country_tel 国家区号
+    String contract_tel 联系号码
+    String email 邮箱
+    ...
+    String status
+    Date createTime
+    Date updateTime
+}
+
+class user_resources{
+    String party_id
+    String user_id 用户ID
+    String resource_attr_id
+    String resource_type 证件类型
+    String resource_value 证件属性（号码）
+    ...
+    String status
+    Date createTime
+    Date updateTime
+}
+
+class user_resources_attr{
+    String party_id
+    String user_id 用户ID
+    String resource_id
+    String attr_id
+    String resource_name 证件名称
+    String attr_type 证件类型
+    String resource 证件位置
+    ...
+    String resource_status
+    Date createTime
+    Date updateTime
+}
+
+class user_tag{
+    String party_id
+    String user_id
+    String tag_type
+    String tag_value
+    String desc
+    String state
+    Date createTime
+    Date updateTime
+}
+
+party "1" -- "n" users : party_id
+users "1" -- "1" user_extra : user_id
+users "1" -- "n" user_contract : user_id
+users "1" -- "n" user_resources : user_id
+user_resources "1" -- "n" user_resources_attr : resource_id
+users "1" -- "n" user_resources_attr : user_id
+users "1" -- "n" user_tag : user_id
+user_tag -- tag_type
+tag_type -- AML_TAG
+tag_type -- OCR_TAG
+@enduml

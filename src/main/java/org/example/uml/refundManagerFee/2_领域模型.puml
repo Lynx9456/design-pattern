@@ -1,0 +1,103 @@
+@startuml
+'https://plantuml.com/object-diagram
+
+
+
+enum status{
+    INIT
+    PROCESSING
+    RETRYING
+    TEMP_FAIL
+    SUCCESS
+    FAIL
+}
+
+'数仓回流到线上表
+class AcctBalanceOrigin {
+	String baseAcctNo
+	String clientNo
+	String timePeriod
+	BigDecimal avgAmt
+	String ccy
+    String prodType
+
+	#query()
+}
+
+'记录需要退费的用户表
+class AcctManagementFeeRefund {
+    Long id
+	String baseAcctNo*
+	String clientNo*
+	String acctSeqNo
+	String timePeriod*
+	String idempotenceIndex
+	String idempotenceNo
+	BigDecimal chargeTranFeeAmt
+	BigDecimal chargeFeeAmt
+	String totalChargeReference
+	String ccy
+	BigDecimal refundTranFeeAmt = <font color="red">20</font>
+	BigDecimal refundFeeAmt
+	String refundReference
+	String refundTime
+    String status = <font color="red">INIT</font>
+    String sendEmailStatus = <font color="red">N</font>
+    String email
+    Int attemptCount = <font color="red">0</font>
+    Int maxRetryCount = <font color="red">5</font>
+	String extInfo
+	Date createTime
+	Date updateTime
+
+	#query()
+	#insert()
+    #update()
+}
+
+'用户管理费收取记录表
+class AcctManagementFeeChargeRecord {
+    Long id
+	Long checkId
+	String baseAcctNo
+	String timePeriod
+	String chargeReference
+	BigDecimal chargeAmt
+	Date createTime
+	Date updateTime
+
+	#query()
+	#insert()
+	#update()
+}
+
+'管理费收取历史信息表
+class RbServChargeHist {
+    Long CHARGE_TO_BASE_ACCT_NO
+	Long CLIENT_NO
+	String REFERENCE
+	BigDecimal TRAN_FEE_AMT
+	BigDecimal FEE_AMT
+	String OSD_SEQ_NO
+
+}
+
+'管理费应收执行计划表
+class RbOsdServCharge {
+    Long BASE_ACCT_NO
+	Long CLIENT_NO
+	String TRAN_DATE
+	String TRAN_TYPE
+	BigDecimal TRAN_FEE_AMT
+	BigDecimal FEE_AMT
+	String OSD_SEQ_NO
+
+}
+
+RbOsdServCharge "1" -- "n" RbServChargeHist : OSD_SEQ_NO
+AcctManagementFeeChargeRecord "1" -- "1" RbServChargeHist : chargeReference:REFERENCE
+AcctBalanceOrigin "1" -- "1" AcctManagementFeeRefund : baseAcctNo
+AcctManagementFeeRefund "1" -- "n" AcctManagementFeeChargeRecord : checkId
+
+AcctManagementFeeRefund -- status
+@enduml
